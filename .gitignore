@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+backend/data/app.db
+backend/data/jwt_secret
+frontend/node_modules/
+frontend/dist/
+.DS_Store
+
