@@ -1,9 +1,24 @@
+# Python environments
 .venv/
+backend/.venv/
+.tracker-venv/
+
+# Python generated files
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# Local backend files
 backend/data/app.db
 backend/data/jwt_secret
+
+# Frontend generated files
 frontend/node_modules/
 frontend/dist/
-.DS_Store
 
+# Private tracker keys
+tracker/.env
+
+# macOS generated files
+.DS_Store
+__MACOSX/

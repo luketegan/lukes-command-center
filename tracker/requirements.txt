@@ -1,0 +1,7 @@
+beautifulsoup4>=4.13,<5
+groq>=0.31,<1
+PyYAML>=6,<7
+python-dotenv>=1.1,<2
+requests>=2.32,<3
+pytest>=8,<9
+

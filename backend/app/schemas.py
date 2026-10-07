@@ -1,5 +1,5 @@
 import re
-from typing import Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -60,3 +60,35 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserResponse
 
+
+class TrackerRunPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    run_id: str = Field(min_length=1, max_length=100)
+    started_at: str
+    completed_at: str
+    status: Literal["complete", "partial", "failed"]
+    topic: str = Field(min_length=1, max_length=1000)
+    k: int = Field(ge=3, le=10)
+    model: str
+    new_items: list[dict[str, Any]] = Field(default_factory=list)
+    still_items: list[dict[str, Any]] = Field(default_factory=list)
+    dropped_items: list[dict[str, Any]] = Field(default_factory=list)
+    articles: list[dict[str, Any]] = Field(default_factory=list)
+    budget_usage: dict[str, Any] = Field(default_factory=dict)
+    report_markdown: str
+    stop_reason: Optional[str] = None
+
+
+class TrackerStatePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    topic: str
+    seen_urls: list[str] = Field(default_factory=list)
+    developments: list[dict[str, Any]] = Field(default_factory=list)
+    last_top_k: list[str] = Field(default_factory=list)
+    updated_at: str
+
+
+class TrackerSaveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    run: TrackerRunPayload
+    state: TrackerStatePayload

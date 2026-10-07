@@ -1,0 +1,36 @@
+{"timestamp": 1791299354.199295, "step": 1, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 2}, "status": "ok", "latency_ms": 912.3, "tokens_or_credits": 787}
+{"timestamp": 1791299356.355506, "step": 1, "kind": "tool", "name": "search_web", "args": {"query": "Coachella mesh network communication device festival locate friends congested cellular"}, "status": "ok", "latency_ms": 2155.83, "tokens_or_credits": 1}
+{"timestamp": 1791299356.759399, "step": 2, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 4}, "status": "ok", "latency_ms": 402.82, "tokens_or_credits": 710}
+{"timestamp": 1791299360.7626371, "step": 2, "kind": "tool", "name": "search_web", "args": {"query": "goTenna festival Coachella", "source": "news", "topn": 10}, "status": "ok", "latency_ms": 4002.84, "tokens_or_credits": 1}
+{"timestamp": 1791299361.169025, "step": 3, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 6}, "status": "ok", "latency_ms": 405.74, "tokens_or_credits": 1442}
+{"timestamp": 1791299361.171069, "step": 3, "kind": "tool", "name": "search_web", "args": {"query": "festival mesh network goTenna music festival", "topn": 10}, "status": "ok", "latency_ms": 0.02, "tokens_or_credits": 1}
+{"timestamp": 1791299362.646844, "step": 4, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 8}, "status": "ok", "latency_ms": 1474.93, "tokens_or_credits": 1773}
+{"timestamp": 1791299362.6472352, "step": 4, "kind": "tool", "name": "search_web", "args": {"query": "Tomorrowland mesh network communication", "topn": 10}, "status": "ok", "latency_ms": 0.0, "tokens_or_credits": 1}
+{"timestamp": 1791299363.653076, "step": 5, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 10}, "status": "ok", "latency_ms": 1005.38, "tokens_or_credits": 1812}
+{"timestamp": 1791299363.653543, "step": 5, "kind": "tool", "name": "search_web", "args": {"query": "goTenna Coachella 2023", "topn": 10}, "status": "ok", "latency_ms": 0.0, "tokens_or_credits": 1}
+{"timestamp": 1791299364.317307, "step": 6, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 12}, "status": "ok", "latency_ms": 663.65, "tokens_or_credits": 1837}
+{"timestamp": 1791299364.319227, "step": 6, "kind": "tool", "name": "search_web", "args": {"query": "site:goTenna.com Coachella", "topn": 10}, "status": "ok", "latency_ms": 0.04, "tokens_or_credits": 1}
+{"timestamp": 1791299370.47167, "step": 7, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 14}, "status": "ok", "latency_ms": 6151.84, "tokens_or_credits": 1961}
+{"timestamp": 1791299370.472546, "step": 7, "kind": "tool", "name": "search_web", "args": {"query": "goTenna Coachella site:goTenna.com", "topn": 10}, "status": "ok", "latency_ms": 0.01, "tokens_or_credits": 1}
+{"timestamp": 1791299376.501326, "step": 8, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 16}, "status": "ok", "latency_ms": 6028.41, "tokens_or_credits": 2112}
+{"timestamp": 1791299376.503454, "step": 8, "kind": "tool", "name": "search_web", "args": {"query": "Tomorrowland goTenna mesh", "topn": 10}, "status": "ok", "latency_ms": 0.01, "tokens_or_credits": 1}
+{"timestamp": 1791299393.72248, "step": 9, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 18}, "status": "ok", "latency_ms": 17218.03, "tokens_or_credits": 2059}
+{"timestamp": 1791299393.723545, "step": 9, "kind": "tool", "name": "search_web", "args": {"query": "TechCrunch goTenna festival", "topn": 10}, "status": "ok", "latency_ms": 0.01, "tokens_or_credits": 1}
+{"timestamp": 1791299408.880198, "step": 10, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 20}, "status": "ok", "latency_ms": 15155.69, "tokens_or_credits": 2105}
+{"timestamp": 1791299408.882449, "step": 10, "kind": "tool", "name": "search_web", "args": {"query": "TechCrunch festival mesh network", "topn": 10}, "status": "ok", "latency_ms": 0.01, "tokens_or_credits": 1}
+{"timestamp": 1791299427.519924, "step": 11, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 22}, "status": "ok", "latency_ms": 18636.53, "tokens_or_credits": 2262}
+{"timestamp": 1791299427.5210738, "step": 11, "kind": "tool", "name": "search_web", "args": {"query": "goTenna Coachella festival", "topn": 10}, "status": "ok", "latency_ms": 0.01, "tokens_or_credits": 1}
+{"timestamp": 1791299443.3667352, "step": 12, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 24}, "status": "ok", "latency_ms": 15844.63, "tokens_or_credits": 2188}
+{"timestamp": 1791299443.369219, "step": 12, "kind": "tool", "name": "search_web", "args": {"query": "goTenna festival site:techcrunch.com", "topn": 10}, "status": "ok", "latency_ms": 0.01, "tokens_or_credits": 1}
+{"timestamp": 1791299446.1542919, "step": 13, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 26}, "status": "ok", "latency_ms": 2784.37, "tokens_or_credits": 2375}
+{"timestamp": 1791299446.1554408, "step": 13, "kind": "tool", "name": "search_web", "args": {"query": "goTenna Coachella", "topn": 10}, "status": "ok", "latency_ms": 0.01, "tokens_or_credits": 1}
+{"timestamp": 1791299465.2938619, "step": 14, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 28}, "status": "ok", "latency_ms": 19137.47, "tokens_or_credits": 2416}
+{"timestamp": 1791299465.294859, "step": 14, "kind": "tool", "name": "search_web", "args": {"query": "goTenna Coachella site:gotenna.com", "topn": 10}, "status": "ok", "latency_ms": 0.01, "tokens_or_credits": 1}
+{"timestamp": 1791299474.09911, "step": 15, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 30}, "status": "ok", "latency_ms": 8803.51, "tokens_or_credits": 2466}
+{"timestamp": 1791299474.0995681, "step": 15, "kind": "tool", "name": "search_web", "args": {"query": "Tomorrowland 5G network pilot", "topn": 10}, "status": "ok", "latency_ms": 0.0, "tokens_or_credits": 1}
+{"timestamp": 1791299494.174169, "step": 16, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 32}, "status": "ok", "latency_ms": 20073.97, "tokens_or_credits": 2847}
+{"timestamp": 1791299494.2942898, "step": 16, "kind": "tool", "name": "fetch_article", "args": {"url": "https://www.coachella.com/passes"}, "status": "ok", "latency_ms": 119.56, "tokens_or_credits": 0}
+{"timestamp": 1791299519.328555, "step": 17, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 34}, "status": "ok", "latency_ms": 25033.68, "tokens_or_credits": 4593}
+{"timestamp": 1791299524.789292, "step": 17, "kind": "tool", "name": "search_web", "args": {"query": "Tomorrowland mesh network pilot", "topn": 10}, "status": "ok", "latency_ms": 5458.51, "tokens_or_credits": 1}
+{"timestamp": 1791299553.871328, "step": 18, "kind": "model", "name": "openai/gpt-oss-120b", "args": {"message_count": 37}, "status": "ok", "latency_ms": 29079.35, "tokens_or_credits": 4811}
+{"timestamp": 1791299553.872708, "step": 18, "kind": "tool", "name": "finish", "args": {"developments": []}, "status": "ok", "latency_ms": 0.02, "tokens_or_credits": 0}

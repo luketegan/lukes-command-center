@@ -9,8 +9,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pymongo.errors import DuplicateKeyError
 
 from .config import FRONTEND_ORIGINS
-from .database import initialize_database, users
-from .schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse, UserUpdateRequest
+from .database import initialize_database, tracker_runs, tracker_states, users
+from .schemas import LoginRequest, RegisterRequest, TokenResponse, TrackerSaveRequest, UserResponse, UserUpdateRequest
 from .security import create_access_token, decode_access_token, hash_password, verify_password
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -158,4 +158,91 @@ def update_user(
 def delete_user(user_id: str, current_user: dict = Depends(get_current_user)) -> dict:
     require_owner(user_id, current_user)
     users.delete_one({"_id": user_id})
+    tracker_states.delete_many({"user_id": user_id})
+    tracker_runs.delete_many({"user_id": user_id})
     return {"message": "Account deleted"}
+
+
+def clean_mongo(document: dict | None) -> dict | None:
+    if document is None:
+        return None
+    result = dict(document)
+    result.pop("_id", None)
+    return result
+
+
+@app.get("/api/tracker/state")
+def get_tracker_state(current_user: dict = Depends(get_current_user)) -> dict:
+    state = tracker_states.find_one({"user_id": current_user["_id"]})
+    if state is None:
+        return {
+            "topic": "",
+            "seen_urls": [],
+            "developments": [],
+            "last_top_k": [],
+            "updated_at": None,
+        }
+    return clean_mongo(state)
+
+
+@app.post("/api/tracker/runs", status_code=201)
+def save_tracker_run(
+    payload: TrackerSaveRequest,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    user_id = current_user["_id"]
+    run = payload.run.model_dump()
+    run["_id"] = run.pop("run_id")
+    run["user_id"] = user_id
+    state = payload.state.model_dump()
+    state["user_id"] = user_id
+    try:
+        tracker_runs.insert_one(run)
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail="This tracker run already exists") from None
+    tracker_states.update_one({"user_id": user_id}, {"$set": state}, upsert=True)
+    return {"message": "Tracker run saved", "run_id": run["_id"]}
+
+
+@app.get("/api/tracker/reports/latest")
+def latest_tracker_report(current_user: dict = Depends(get_current_user)) -> dict:
+    run = tracker_runs.find_one(
+        {"user_id": current_user["_id"]},
+        sort=[("completed_at", -1)],
+    )
+    if run is None:
+        raise HTTPException(status_code=404, detail="No tracker reports yet")
+    result = clean_mongo(run)
+    result["run_id"] = run["_id"]
+    result.pop("user_id", None)
+    return result
+
+
+@app.get("/api/tracker/runs")
+def list_tracker_runs(current_user: dict = Depends(get_current_user)) -> list[dict]:
+    results = []
+    for run in tracker_runs.find({"user_id": current_user["_id"]}).sort("completed_at", -1):
+        item = clean_mongo(run)
+        item["run_id"] = run["_id"]
+        item.pop("user_id", None)
+        results.append(item)
+    return results
+
+
+@app.get("/api/tracker/runs/{run_id}")
+def get_tracker_run(run_id: str, current_user: dict = Depends(get_current_user)) -> dict:
+    run = tracker_runs.find_one({"_id": run_id, "user_id": current_user["_id"]})
+    if run is None:
+        raise HTTPException(status_code=404, detail="Tracker run not found")
+    result = clean_mongo(run)
+    result["run_id"] = run["_id"]
+    result.pop("user_id", None)
+    return result
+
+
+@app.delete("/api/tracker/state")
+def reset_tracker_state(current_user: dict = Depends(get_current_user)) -> dict:
+    user_id = current_user["_id"]
+    deleted_runs = tracker_runs.delete_many({"user_id": user_id}).deleted_count
+    tracker_states.delete_many({"user_id": user_id})
+    return {"message": "Tracker state reset", "deleted_runs": deleted_runs}
