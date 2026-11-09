@@ -1,0 +1,40 @@
+# Policy for one orchestrated run. The orchestrator splits this budget between the workers.
+topic: >-
+  New technologies, product launches, and festival pilots that help people
+  communicate with or locate friends when cellular networks are congested or
+  unavailable at large music festivals.
+k: 5
+
+# Total budget for the whole run. A step is one model call. A fetch is one HTTP
+# request to a web page, redirects included.
+budget:
+  max_steps: 30
+  max_fetches: 24
+  max_tokens: 75000
+
+# Each worker's share. The shares must add up to no more than the total.
+shares:
+  researcher:
+    max_steps: 18
+    max_fetches: 8
+    max_tokens: 58000
+  verifier:
+    max_steps: 12
+    max_fetches: 16
+    max_tokens: 17000
+
+# How long each worker may work, measured from when it receives the request.
+time_budget_ms:
+  researcher: 300000
+  verifier: 150000
+
+# The orchestrator waits longer than time_budget_ms: the worker needs time to
+# answer, and the Render verifier may first need to wake from a cold start.
+timeouts:
+  grace_seconds: 20
+  verifier_cold_start_seconds: 75
+
+retries:
+  max_attempts: 6
+  base_delay_seconds: 2
+  max_delay_seconds: 30

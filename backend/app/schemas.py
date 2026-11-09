@@ -77,6 +77,8 @@ class TrackerRunPayload(BaseModel):
     budget_usage: dict[str, Any] = Field(default_factory=dict)
     report_markdown: str
     stop_reason: Optional[str] = None
+    failed_workers: list[str] = Field(default_factory=list)
+    stale: bool = False
 
 
 class TrackerStatePayload(BaseModel):

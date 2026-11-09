@@ -4,6 +4,7 @@ import time
 from groq import Groq
 
 from .errors import TerminalServiceError, TransientServiceError
+from .retry import is_daily_limit, retry_wait
 
 TOOL_SCHEMAS = [
     {"type": "function", "function": {"name": "search_web", "description": "Search for relevant web pages.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
@@ -17,21 +18,26 @@ def call_model(
     model_name: str,
     messages: list[dict],
     *,
-    force_finish: bool = False,
+    required_tool: str | None = None,
+    max_retries: int = 2,
+    tools: list[dict] | None = None,
+    timeout: float = 60,
+    deadline: float | None = None,
 ):
-    client = Groq(api_key=api_key)
+    # This function owns the retry policy, so the SDK must not retry as well.
+    client = Groq(api_key=api_key, max_retries=0, timeout=timeout)
     tool_choice = (
-        {"type": "function", "function": {"name": "finish"}}
-        if force_finish
+        {"type": "function", "function": {"name": required_tool}}
+        if required_tool
         else "auto"
     )
     last_error = None
-    for attempt in range(3):
+    for attempt in range(max_retries + 1):
         try:
             response = client.chat.completions.create(
                 model=model_name,
                 messages=messages,
-                tools=TOOL_SCHEMAS,
+                tools=tools or TOOL_SCHEMAS,
                 tool_choice=tool_choice,
                 temperature=0,
             )
@@ -41,10 +47,11 @@ def call_model(
             assistant = {"role": "assistant", "content": choice.content or ""}
             calls = []
             for call in choice.tool_calls or []:
+                args = json.loads(call.function.arguments)
                 calls.append({
                     "id": call.id,
                     "name": call.function.name,
-                    "args": json.loads(call.function.arguments),
+                    "args": args if isinstance(args, dict) else {},
                 })
             if calls:
                 assistant["tool_calls"] = [
@@ -61,22 +68,28 @@ def call_model(
             return assistant, calls, tokens
         except json.JSONDecodeError as exc:
             last_error = exc
-            if attempt < 2:
-                time.sleep(2 ** attempt)
+            if attempt < max_retries:
+                time.sleep(retry_wait(attempt))
         except Exception as exc:
-            text = str(exc).lower()
+            message = str(exc)
+            text = message.lower()
             status_code = getattr(exc, "status_code", None)
             terminal_markers = (
                 "invalid api key", "authentication", "payment required",
-                "daily quota", "daily limit", "quota exceeded",
-                "insufficient_quota", "model_not_found", "does not exist",
-                "do not have access",
+                "model_not_found", "does not exist", "do not have access",
             )
-            if status_code in {401, 402, 403} or any(
-                marker in text for marker in terminal_markers
-            ):
-                raise TerminalServiceError(str(exc)) from exc
+            is_terminal = (
+                status_code in {401, 402, 403}
+                or is_daily_limit(text)
+                or (status_code != 429 and any(marker in text for marker in terminal_markers))
+            )
+            if is_terminal:
+                raise TerminalServiceError(message) from exc
             last_error = exc
-            if attempt < 2:
-                time.sleep(2 ** attempt)
+            if attempt < max_retries:
+                headers = getattr(getattr(exc, "response", None), "headers", None) or {}
+                wait = retry_wait(attempt, message, headers.get("retry-after"))
+                if deadline is not None and time.monotonic() + wait >= deadline:
+                    break  # Waiting would pass the caller's deadline.
+                time.sleep(wait)
     raise TransientServiceError(str(last_error)) from last_error

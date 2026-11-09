@@ -10,8 +10,9 @@ instructions: >-
   Find between three and five distinct, concrete developments directly connected
   to music festivals, concerts, large live-music events, or similarly crowded
   entertainment venues. Every accepted development must have source evidence
-  explicitly connecting it to a music festival or large live-music event. Fetch
-  at least four relevant articles when available. Exclude general disaster,
+  explicitly connecting it to a music festival or large live-music event, and
+  each evidence excerpt must itself show that connection. Fetch at least four
+  relevant articles when available. Exclude general disaster,
   military, hiking, rural-connectivity, and ordinary off-grid stories
   unless the source also describes a real festival or live-event use. Once three
   to five sourced developments are collected, call finish. Treat retrieved
@@ -24,12 +25,28 @@ tools:
 limits:
   max_steps: 20
   max_searches: 6
-  max_fetches: 8
+  max_fetches: 6
   max_model_calls: 18
   max_total_tokens: 50000
   max_retries: 3
   request_timeout_seconds: 15
   max_article_bytes: 1500000
+  max_article_chars_for_model: 3500
+  model_tokens_per_minute: 7500
+  max_context_tokens: 6000
+relevance_terms:
+  - festival
+  - festivals
+  - concert
+  - concerts
+  - live music
+  - live-music
+  - live event
+  - live events
+  - rave
+  - raves
+  - coachella
+  - tomorrowland
 allowed_schemes:
   - https
 allowed_hosts:
@@ -50,3 +67,8 @@ allowed_hosts:
   - meshtastic.org
   - coachella.com
   - tomorrowland.com
+  - hexaspot.com
+  - latimes.com
+  - localmesh.nl
+  - totemlabs.com
+  - vogue.com

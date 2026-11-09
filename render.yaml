@@ -1,0 +1,20 @@
+# Render Blueprint for the verifier only. The orchestrator and researcher run locally.
+services:
+  - type: web
+    name: festival-verifier
+    runtime: python
+    plan: free
+    buildCommand: pip install -r services/verifier/requirements.txt
+    startCommand: python -m services.verifier
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: HOST
+        value: 0.0.0.0
+      - key: VERIFIER_MODEL
+        value: openai/gpt-oss-20b
+      - key: VERIFIER_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

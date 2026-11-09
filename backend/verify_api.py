@@ -3,7 +3,10 @@ import sys
 import time
 import uuid
 
+import jwt
 import requests
+
+from app.security import JWT_ALGORITHM, JWT_SECRET
 
 
 BASE_URL = "http://127.0.0.1:8000"
@@ -53,6 +56,30 @@ expect(
     401,
     "bad token",
 )
+expired_token = jwt.encode(
+    {"sub": users[0]["user"]["id"], "exp": int(time.time()) - 60},
+    JWT_SECRET,
+    algorithm=JWT_ALGORITHM,
+)
+expect(
+    requests.get(f"{BASE_URL}/api/auth/me", headers={"Authorization": f"Bearer {expired_token}"}, timeout=5),
+    401,
+    "expired token",
+)
+for method, path in (
+    ("GET", "/api/tracker/state"),
+    ("DELETE", "/api/tracker/state"),
+    ("GET", "/api/tracker/runs"),
+    ("POST", "/api/tracker/runs"),
+    ("GET", "/api/tracker/runs/example"),
+    ("GET", "/api/tracker/reports/latest"),
+):
+    expect(requests.request(method, f"{BASE_URL}{path}", timeout=5), 401, f"tracker {method} {path} without token")
+    expect(
+        requests.request(method, f"{BASE_URL}{path}", headers={"Authorization": "Bearer bad"}, timeout=5),
+        401,
+        f"tracker {method} {path} with bad token",
+    )
 expect(
     requests.get(f"{BASE_URL}/api/users/{users[0]['user']['id']}", headers=headers1, timeout=5),
     200,

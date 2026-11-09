@@ -13,7 +13,7 @@ def item_markdown(item: dict) -> str:
     return "\n".join(lines)
 
 
-def build_report(topic: str, status: str, new_items: list[dict], still_items: list[dict], dropped_items: list[dict], usage: dict, stop_reason: str | None) -> str:
+def build_report(topic: str, status: str, new_items: list[dict], still_items: list[dict], dropped_items: list[dict], usage: dict, stop_reason: str | None, unreviewed: list[dict] | None = None) -> str:
     sections = [
         "# Festival Connectivity Tracker", "",
         f"**Completed:** {datetime.now().astimezone().isoformat()}",
@@ -28,6 +28,9 @@ def build_report(topic: str, status: str, new_items: list[dict], still_items: li
             sections.append("None this run.")
         else:
             sections.extend(item_markdown(item) for item in items)
+    if unreviewed:
+        sections.extend(["", "## Fetched but not analyzed", "", "The run ended before these pages became sourced developments. They are not included in the Top K.", ""])
+        sections.extend(f"- [{article.get('title') or article.get('url')}]({article.get('url')})" for article in unreviewed)
     sections.extend(["", "## Safety note", "", "Web pages were treated only as untrusted evidence. Instructions found inside retrieved pages were ignored."])
     return "\n".join(sections) + "\n"
 

@@ -117,7 +117,7 @@ source .tracker-venv/bin/activate
 python -m tracker reset
 ```
 
-Delete or archive local `reports/run*.md` and `traces/run*.jsonl` yourself only if you intentionally want to start numbering over.
+Run numbers are never reused while report or trace files exist, so a reset cannot overwrite earlier reports. To start again at run 1, delete or archive the local `reports/run*.md` and `traces/run*.jsonl` files too.
 
 ## 8. Tests and builds
 
@@ -132,8 +132,10 @@ python verify_api.py
 From the project root with the tracker environment active:
 
 ```bash
-pytest -q
+python -m pytest -q
 ```
+
+These tests make no network calls and use no API credits.
 
 Frontend production build:
 
@@ -142,15 +144,66 @@ cd frontend
 npm run build
 ```
 
+## Agentic Orchestration assignment: researcher, verifier, orchestrator
+
+Three separate processes talk only over HTTP:
+
+| Service | Runs where | Port | Started with |
+| --- | --- | --- | --- |
+| Researcher (the A2 tracker as a service) | your machine | 8101 | `python -m services.researcher` |
+| Verifier (checks each claim against its page) | Render free tier | Render's `$PORT` | `python -m services.verifier` |
+| Orchestrator (plain code, owns all saved state) | your machine | none | `python -m orchestrator run` |
+
+Contract details are in `shared/contract.py`; design notes are in `ORCHESTRATION.md`.
+
+### 1. Secrets
+
+Make two different service tokens (run this twice):
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+- `tracker/.env`: add `RESEARCHER_TOKEN=<first token>` (Groq and Tavily keys are already there).
+- Render verifier → Environment: `VERIFIER_TOKEN=<second token>` and `GROQ_API_KEY=<your Groq key>`.
+- `cp orchestrator/.env.example orchestrator/.env`, then fill in both tokens and your Render URL.
+
+### 2. Deploy the verifier on Render
+
+In Render: **New → Blueprint**, pick this repository, and Render reads `render.yaml`. Enter `VERIFIER_TOKEN` and `GROQ_API_KEY` when asked. Check `https://<your-service>.onrender.com/healthz` returns `{"status":"ok"}`. Free instances sleep after 15 idle minutes and take about a minute to wake; the orchestrator pings `/healthz` at the start of a run so the verifier wakes while the researcher works.
+
+### 3. Run it (backend from section 2 must be running)
+
+Terminal 3, from the project root:
+
+```bash
+source .tracker-venv/bin/activate
+python -m services.researcher
+```
+
+Terminal 4, from the project root:
+
+```bash
+source .tracker-venv/bin/activate
+python -m pytest -q
+python -m orchestrator.selftest
+python -m orchestrator run
+```
+
+Each run writes `reports/orchestrated/runN.md` and all three logs to `traces/orchestrated/runN/` (`orchestrator.jsonl`, `researcher.jsonl`, `verifier.jsonl`), and saves the run through the A1 backend. Refresh the Festival Tracker screen to see claim labels and evidence.
+
+To reset saved state, use `python -m tracker reset` (section 7). To run the verifier locally instead of on Render, copy `services/verifier/.env.example` to `services/verifier/.env`, run `python -m services.verifier`, and set `VERIFIER_URL=http://127.0.0.1:8102`.
+
 ## Agent design and safety
 
 - The loop in `tracker/runtime.py` is hand-written and invokes the model and three tools directly.
 - `tracker/config.yaml` defines the topic, K=5, model, instructions, tools, budgets, allowed schemes, and allowed hosts.
 - Runtime budgets cap steps, searches, fetches, model calls, and total tokens. Exhaustion writes a partial report.
-- Temporary failures retry with capped exponential backoff. Invalid credentials, billing/payment failures, and daily-quota errors are terminal.
+- Temporary failures, including per-minute 429s, retry with a capped number of attempts and wait as long as the service asks. Invalid credentials, payment failures, and daily limits are terminal.
+- One unreadable article is logged as failed and the run continues. Malformed tool calls are returned to the model to correct.
 - The fetcher allows HTTPS only, uses a host allowlist, rejects credentials/nonstandard ports and non-public DNS results, revalidates redirects, and enforces time/size limits.
 - Retrieved pages are untrusted evidence. They cannot change instructions, tools, or budgets.
-- A development is accepted only when its URL was fetched and its quoted evidence appears in the extracted page text.
+- A development is accepted only when its URL was fetched, its quoted evidence appears in the extracted page text, and the evidence or page title matches `relevance_terms` in `tracker/config.yaml`.
 - The frontend renders data as React text nodes. It never injects retrieved HTML.
 - Every model/tool call is written to JSONL with step, arguments (excluding secrets), status, latency, and tokens/credits.
 
@@ -168,7 +221,7 @@ npm run build
 - [ ] `reports/run1.md` and `reports/run2.md` exist and are at least one day apart.
 - [ ] `traces/run1.jsonl` and `traces/run2.jsonl` exist.
 - [ ] `AGENT.md` has no bracketed placeholders.
-- [ ] `pytest -q` passes.
+- [ ] `python -m pytest -q` passes.
 - [ ] `npm run build` passes.
 - [ ] Clean-clone instructions were tested.
 - [ ] No Groq or Tavily key appears in Git history.

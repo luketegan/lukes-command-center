@@ -11,16 +11,19 @@ import yaml
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
-from .errors import UnsafeUrlError
+from .errors import ArticleUnavailable, TransientServiceError, UnsafeUrlError
 from .policy import validate_public_url
 from .retry import classify_response, with_retries
+
+
+TAVILY_CREDITS_PER_ADVANCED_SEARCH = 2
 
 
 def search_web(query: str, api_key: str, config: dict) -> dict:
     def operation():
         response = requests.post(
             "https://api.tavily.com/search",
-            json={"api_key": api_key, "query": query, "search_depth": "advanced", "max_results": 8},
+            json={"api_key": api_key, "query": query, "search_depth": "advanced", "max_results": 8, "include_domains": config["allowed_hosts"]},
             timeout=config["limits"]["request_timeout_seconds"],
         )
         classify_response(response)
@@ -41,46 +44,63 @@ def search_web(query: str, api_key: str, config: dict) -> dict:
             continue
         results.append({
             "title": item.get("title", ""), "url": item.get("url", ""),
-            "snippet": item.get("content", "")[:1200],
+            "snippet": item.get("content", "")[:500],
         })
     return {"query": query, "results": results, "rejected": rejected}
 
 
-def fetch_article(url: str, config: dict) -> dict:
+def _read_article(url: str, config: dict, on_request=None) -> dict:
     current = validate_public_url(url, config)
     timeout = config["limits"]["request_timeout_seconds"]
     max_bytes = config["limits"]["max_article_bytes"]
     for _ in range(4):
-        def operation():
-            return requests.get(
-                current, timeout=timeout, stream=True, allow_redirects=False,
+        def operation(target=current):
+            if on_request:
+                on_request()  # Every request, redirects included, is charged.
+            response = requests.get(
+                target, timeout=timeout, stream=True, allow_redirects=False,
                 headers={"User-Agent": "FestivalConnectivityTracker/1.0"},
             )
-        response = with_retries(operation, config["limits"]["max_retries"])
-        if response.is_redirect:
-            location = response.headers.get("Location")
-            if not location:
-                raise ValueError("Redirect did not include a location")
-            current = validate_public_url(urljoin(current, location), config)
-            continue
-        classify_response(response)
-        content_type = response.headers.get("Content-Type", "").lower()
-        if not any(item in content_type for item in ("text/html", "text/plain", "application/xhtml+xml")):
-            raise ValueError(f"Unsupported content type: {content_type}")
-        chunks, total = [], 0
-        for chunk in response.iter_content(16384):
-            total += len(chunk)
-            if total > max_bytes:
-                raise ValueError("Article exceeds the configured size limit")
-            chunks.append(chunk)
-        html = b"".join(chunks).decode(response.encoding or "utf-8", errors="replace")
-        soup = BeautifulSoup(html, "html.parser")
+            if response.status_code == 429 or response.status_code >= 500:
+                response.close()
+                raise TransientServiceError(f"HTTP {response.status_code}")
+            return response
+        with with_retries(operation, config["limits"]["max_retries"]) as response:
+            if response.is_redirect:
+                location = response.headers.get("Location")
+                if not location:
+                    raise ArticleUnavailable("Redirect did not include a location")
+                current = validate_public_url(urljoin(current, location), config)
+                continue
+            if not response.ok:
+                raise ArticleUnavailable(f"HTTP {response.status_code}")
+            content_type = response.headers.get("Content-Type", "").lower()
+            if not any(item in content_type for item in ("text/html", "text/plain", "application/xhtml+xml")):
+                raise ArticleUnavailable(f"Unsupported content type: {content_type}")
+            chunks, total = [], 0
+            for chunk in response.iter_content(16384):
+                total += len(chunk)
+                if total > max_bytes:
+                    raise ArticleUnavailable("Article exceeds the configured size limit")
+                chunks.append(chunk)
+        # Requests assumes Latin-1 when no charset is sent, which garbles UTF-8 pages.
+        declared = re.search(r"charset=[\"']?([\w-]+)", content_type)
+        soup = BeautifulSoup(b"".join(chunks), "html.parser", from_encoding=declared.group(1) if declared else None)
         title = unescape(soup.title.get_text(" ", strip=True)) if soup.title else current
         for tag in soup(["script", "style", "noscript", "svg", "form", "nav", "footer"]):
             tag.decompose()
-        text = re.sub(r"\s+", " ", soup.get_text(" ", strip=True)).strip()
+        body = soup.find("article") or soup.find("main") or soup
+        text = re.sub(r"\s+", " ", body.get_text(" ", strip=True)).strip()
         return {"url": current, "title": title[:300], "text": text[:60000], "bytes": total}
-    raise ValueError("Too many redirects")
+    raise ArticleUnavailable("Too many redirects")
+
+
+def fetch_article(url: str, config: dict, on_request=None) -> dict:
+    """One unreadable page is the page's problem. It must not end the whole run."""
+    try:
+        return _read_article(url, config, on_request)
+    except (TransientServiceError, requests.RequestException) as exc:
+        raise ArticleUnavailable(str(exc)[:300]) from exc
 
 
 def finish(report: dict) -> dict:
@@ -108,7 +128,10 @@ def main() -> None:
             raise SystemExit("TAVILY_API_KEY is missing from tracker/.env")
         result = search_web(args.value, api_key, config)
     elif args.tool == "fetch_article":
-        result = fetch_article(args.value, config)
+        try:
+            result = fetch_article(args.value, config)
+        except (ArticleUnavailable, UnsafeUrlError) as exc:
+            raise SystemExit(f"{type(exc).__name__}: {exc}") from exc
     else:
         result = finish(json.loads(args.value))
     print(json.dumps(result, indent=2, ensure_ascii=False))

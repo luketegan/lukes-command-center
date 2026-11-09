@@ -17,3 +17,7 @@ class TerminalServiceError(TrackerError):
 class UnsafeUrlError(TrackerError):
     """A URL failed the network safety policy."""
 
+
+
+class ArticleUnavailable(TrackerError):
+    """One article could not be read. The run continues without it."""

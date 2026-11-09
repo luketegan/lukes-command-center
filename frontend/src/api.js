@@ -12,6 +12,8 @@ export async function api(path, options = {}) {
     const message = Array.isArray(detail)
       ? detail.map((item) => item.msg).join("; ")
       : detail || "Something went wrong";
+    // A saved token stopped working, so send the person back to the login screen.
+    if (response.status === 401 && token) window.dispatchEvent(new Event("session-expired"));
     const error = new Error(message);
     error.status = response.status;
     throw error;

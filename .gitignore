@@ -22,3 +22,8 @@ tracker/.env
 # macOS generated files
 .DS_Store
 __MACOSX/
+# Orchestration secrets and raw per-service logs (per-run copies live in traces/orchestrated/)
+orchestrator/.env
+services/verifier/.env
+traces/orchestrator/
+traces/researcher/
