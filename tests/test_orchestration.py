@@ -5,6 +5,7 @@ import json
 import threading
 import time
 import uuid
+from typing import ClassVar
 
 import pytest
 import requests
@@ -178,7 +179,7 @@ def test_redirect_to_metadata_address_is_blocked(monkeypatch):
 
     class Redirect:
         status_code, is_redirect, ok = 302, True, False
-        headers = {"Location": "http://169.254.169.254/latest/meta-data/"}
+        headers: ClassVar[dict] = {"Location": "http://169.254.169.254/latest/meta-data/"}
         def __enter__(self): return self
         def __exit__(self, *a): return False
     requested = []
@@ -273,7 +274,7 @@ def test_budget_counts_each_request_once_and_charges_a_silent_worker_its_share()
 
 class FakeBackend:
     saved = None
-    previous = {"developments": [{"key": "old", "id": "old", "title": "Old item", "summary": "s",
+    previous: ClassVar[dict] = {"developments": [{"key": "old", "id": "old", "title": "Old item", "summary": "s",
                                   "claims": [{"claim_id": "x", "text": "t", "source_url": "https://e.com", "label": "supported", "evidence": "e"}]}],
                 "last_top_k": ["old"]}
 
@@ -303,7 +304,7 @@ def orchestrated(tmp_path, monkeypatch, verifier):
 def test_full_run_labels_claims_and_follows_one_request_across_logs(orchestrated):
     config, env, root = orchestrated
     report = orchestrator_run.run(config, env, sleep=lambda s: None).read_text()
-    run, state = FakeBackend.saved
+    run, _state = FakeBackend.saved
     assert run["status"] == "complete" and run["failed_workers"] == []
     assert run["new_items"][0]["claims"][0]["label"] == "supported"
     assert [item["key"] for item in run["dropped_items"]] == ["old"]
@@ -380,7 +381,8 @@ def test_research_returns_contract_developments(monkeypatch):
 
 
 def test_research_rate_limited_before_evidence_asks_for_a_retry(monkeypatch):
-    scripted(monkeypatch, [TransientServiceError("tokens per minute")])
+    monkeypatch.setattr(research_module.time, "sleep", lambda seconds: None)
+    scripted(monkeypatch, [TransientServiceError("tokens per minute")] * 3)
     with pytest.raises(research_module.ResearchRateLimited):
         run_research()
 
@@ -397,3 +399,73 @@ def test_research_fetch_budget_counts_requests(monkeypatch):
                            finish_call({"text": "FireChat worked at Coachella.", "source_url": "https://example.com/a"})])
     outcome = run_research(budget={"max_steps": 10, "max_fetches": 1, "max_tokens": 40000})
     assert outcome["status"] == "partial" and outcome["usage"]["fetches"] == 1 and len(outcome["developments"]) == 1
+
+
+def test_research_finishes_once_it_has_enough_articles(monkeypatch):
+    """Orchestrated run 1 fetched three pages, kept going, and was rate limited before finishing."""
+    pages = iter(["https://example.com/a", "https://example.com/b", "https://example.com/c"])
+    required = []
+
+    def fake_model(*args, **kwargs):
+        required.append(kwargs["required_tool"])
+        if kwargs["required_tool"] == "finish":
+            return {"role": "assistant", "content": ""}, finish_call({"text": "FireChat worked at Coachella.", "source_url": "https://example.com/a"}), 100
+        return {"role": "assistant", "content": ""}, [{"id": "x", "name": "fetch_article", "args": {"url": next(pages)}}], 100
+    monkeypatch.setattr(research_module, "call_model", fake_model)
+    monkeypatch.setattr(research_module, "fetch_article", lambda url, config, on_request=None: {**ARTICLE, "url": url})
+    outcome = run_research()
+    assert required == [None, None, None, "finish"] and outcome["status"] == "complete"
+
+
+def test_research_repeated_fetches_force_finish(monkeypatch):
+    turns = [[{"id": str(n), "name": "fetch_article", "args": {"url": "https://example.com/a"}}] for n in range(3)]
+    required = []
+
+    def fake_model(*args, **kwargs):
+        required.append(kwargs["required_tool"])
+        if kwargs["required_tool"] == "finish":
+            return {"role": "assistant", "content": ""}, finish_call({"text": "FireChat worked at Coachella.", "source_url": "https://example.com/a"}), 100
+        return {"role": "assistant", "content": ""}, turns.pop(0), 100
+    monkeypatch.setattr(research_module, "call_model", fake_model)
+    monkeypatch.setattr(research_module, "fetch_article", lambda url, config, on_request=None: ARTICLE)
+    run_research()
+    assert required == [None, None, None, "finish"]
+
+
+def test_finish_call_gets_a_short_fresh_prompt(monkeypatch):
+    seen = []
+
+    def fake_model(key, model, messages, **kwargs):
+        seen.append((kwargs["required_tool"], len(messages)))
+        if kwargs["required_tool"] == "finish":
+            assert "fetched_pages" in messages[1]["content"]
+            return {"role": "assistant", "content": ""}, finish_call({"text": "FireChat worked at Coachella.", "source_url": "https://example.com/a"}), 100
+        return {"role": "assistant", "content": ""}, [{"id": "x", "name": "fetch_article", "args": {"url": "https://example.com/" + "abc"[len(seen) - 1]}}], 100
+    monkeypatch.setattr(research_module, "call_model", fake_model)
+    monkeypatch.setattr(research_module, "fetch_article", lambda url, config, on_request=None: {**ARTICLE, "url": url})
+    assert run_research()["status"] == "complete"
+    assert seen[-1] == ("finish", 2)
+
+
+def test_old_search_results_are_dropped_from_the_history(monkeypatch):
+    histories = []
+    turns = [[{"id": str(n), "name": "search_web", "args": {"query": str(n)}}] for n in range(2)] + [finish_call()]
+
+    def fake_model(key, model, messages, **kwargs):
+        histories.append([m.get("content", "") for m in messages if m.get("role") == "tool"])
+        return {"role": "assistant", "content": ""}, (turns.pop(0) if turns else finish_call()), 100
+    monkeypatch.setattr(research_module, "call_model", fake_model)
+    monkeypatch.setattr(research_module, "search_web", lambda q, key, config: {"query": q, "results": [{"title": "t", "url": f"https://example.com/{q}", "snippet": "s"}], "rejected": []})
+    run_research()
+    assert "omitted" in histories[2][0] and "example.com/1" in histories[2][1]
+
+
+def test_research_waits_out_a_per_minute_limit(monkeypatch):
+    """Orchestrated runs 1-3 gave up after Groq's short retry hints."""
+    sleeps = []
+    monkeypatch.setattr(research_module.time, "sleep", sleeps.append)
+    scripted(monkeypatch, [TransientServiceError("tokens per minute"),
+                           [{"id": "1", "name": "fetch_article", "args": {"url": "https://example.com/a"}}],
+                           finish_call({"text": "FireChat worked at Coachella.", "source_url": "https://example.com/a"})])
+    outcome = run_research(deadline_seconds=600)
+    assert sleeps[:1] == [30] and outcome["status"] == "complete"

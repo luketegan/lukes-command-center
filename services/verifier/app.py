@@ -277,7 +277,18 @@ def verify_claims(envelope: dict, deadline: float, trace, *, api_key: str, model
                 raise OutOfBudget("tokens_budget_exhausted")
             budget.spend("steps")
             started = time.monotonic()
-            answer, tokens = ask_model(api_key, model, claim["text"], select_passage(claim["text"], page), deadline)
+            try:
+                answer, tokens = ask_model(api_key, model, claim["text"], select_passage(claim["text"], page), deadline)
+            except RateLimited as exc:
+                # One wait for the per-minute window, if the deadline allows it.
+                pause = max(exc.wait, 20)
+                if time.monotonic() + pause >= deadline - 5:
+                    raise
+                trace.write(**ids, step=budget.used["steps"], direction="out", endpoint_or_tool="groq_chat",
+                            status="rate_limited", latency_ms=(time.monotonic() - started) * 1000)
+                time.sleep(pause)
+                started = time.monotonic()
+                answer, tokens = ask_model(api_key, model, claim["text"], select_passage(claim["text"], page), deadline)
         except OutOfBudget as exc:
             stop_code = exc.code
             break

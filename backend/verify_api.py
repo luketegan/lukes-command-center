@@ -5,9 +5,7 @@ import uuid
 
 import jwt
 import requests
-
 from app.security import JWT_ALGORITHM, JWT_SECRET
-
 
 BASE_URL = "http://127.0.0.1:8000"
 
