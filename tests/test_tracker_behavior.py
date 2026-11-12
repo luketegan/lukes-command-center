@@ -466,3 +466,12 @@ def test_calls_wait_for_the_per_minute_window(monkeypatch):
     assert waits == [50.0] and history == []
     runtime.wait_for_token_window([(99.0, 1000)], 1000, 7500)
     assert len(waits) == 1
+
+
+def test_ignored_forced_tool_falls_back_to_any_tool(monkeypatch):
+    """Orchestrated run 4: Groq returned 400 when the model called search_web while fetch_article was forced."""
+    error = FakeGroqError("Tool call validation failed: attempted to call tool 'search_web' which does not match request.tool_choice", 400)
+    attempts = fake_groq(monkeypatch, [error, model_reply()])
+    model.call_model("key", "m", [], required_tool="fetch_article", max_retries=2, max_completion_tokens=900, reasoning_effort="low")
+    assert attempts[1]["tool_choice"] == "required"
+    assert attempts[0]["max_completion_tokens"] == 900 and attempts[0]["extra_body"] == {"reasoning_effort": "low"}

@@ -37,7 +37,7 @@ class TraceLog:
         }
         for key, value in extra.items():
             if key not in FIELDS and value is not None:
-                event[key] = str(value)[:300]
+                event[key] = str(value)[:600]
         line = json.dumps(event, ensure_ascii=False)
         with self.lock:
             self.memory.append(event)

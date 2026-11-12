@@ -23,6 +23,8 @@ def call_model(
     tools: list[dict] | None = None,
     timeout: float = 60,
     deadline: float | None = None,
+    max_completion_tokens: int | None = None,
+    reasoning_effort: str | None = None,
 ):
     # This function owns the retry policy, so the SDK must not retry as well.
     client = Groq(api_key=api_key, max_retries=0, timeout=timeout)
@@ -40,6 +42,9 @@ def call_model(
                 tools=tools or TOOL_SCHEMAS,
                 tool_choice=tool_choice,
                 temperature=0,
+                # Groq counts the reply allowance against the per-minute limit, so keep it small.
+                **({"max_completion_tokens": max_completion_tokens} if max_completion_tokens else {}),
+                **({"extra_body": {"reasoning_effort": reasoning_effort}} if reasoning_effort else {}),
             )
             choice = response.choices[0].message
             usage = getattr(response, "usage", None)
@@ -74,6 +79,11 @@ def call_model(
             message = str(exc)
             text = message.lower()
             status_code = getattr(exc, "status_code", None)
+            if status_code == 400 and "tool call validation" in text and tool_choice not in ("auto", "required"):
+                # The model ignored the forced tool. Let it pick any tool rather than failing the step.
+                tool_choice = "required"
+                last_error = exc
+                continue
             terminal_markers = (
                 "invalid api key", "authentication", "payment required",
                 "model_not_found", "does not exist", "do not have access",

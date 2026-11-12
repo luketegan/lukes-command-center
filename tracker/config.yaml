@@ -34,6 +34,10 @@ limits:
   max_article_chars_for_model: 3500
   model_tokens_per_minute: 7500
   max_context_tokens: 6000
+search_queries:
+  - festival app find friends without cell service mesh network
+  - Coachella offline messaging app festival friends
+  - music festival mesh network device locate friends
 relevance_terms:
   - festival
   - festivals
